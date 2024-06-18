@@ -1,5 +1,5 @@
 build:
-	go build -o voicebot-cli main.go
+	go build -o voicebot-cli test.go
 
 run: build
 	./voicebot-cli
