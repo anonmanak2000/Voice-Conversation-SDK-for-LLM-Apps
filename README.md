@@ -36,6 +36,7 @@ This is a simple application written in Go for a voice bot that processes speech
 3. There are 2 options to setup API Keys:
 
    a. Create an .env file to store the API Keys
+   
    b. Pass API keys as command-line arguments. Update Makefile to add your API Keys
 
    Deepgram API Key: Obtain from Deepgram for speech-to-text conversion.
