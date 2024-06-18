@@ -2,16 +2,14 @@
 
 ## Overview
 
-This is a Command-Line Interface (CLI) application written in Go for a voice bot that processes speech input from a microphone, interacts with a Large Language Model (LLM) for natural language processing, and provides speech output through audio playback.
+This is a simple application written in Go for a voice bot that processes speech input from an audio file (.wav), interacts with a Large Language Model (LLM) for natural language processing, and provides an output audio file.
 
 ### Features
 
 - **Speech-to-Text (STT)**: Converts speech input into text using Deepgram's API.
 - **Large Language Model (LLM)**: Interacts with OpenAI's GPT-3.5 to generate responses based on user input.
 - **Text-to-Speech (TTS)**: Converts text responses from the LLM into speech for audio output.
-- **Concurrency**: Uses goroutines to handle microphone input and audio output concurrently.
 - **Performance Metrics**: Tracks various metrics such as STT time, LLM response time, and TTS response time.
-- **CLI Interface**: Provides a simple command-line interface to start and stop the application.
 
 ## Setup
 
@@ -37,8 +35,22 @@ This is a Command-Line Interface (CLI) application written in Go for a voice bot
 
 3. Set up API keys:
 
-   STT API Key: Obtain from Deepgram for speech-to-text conversion.
-   TTS API Key: Obtain from OpenAI for text-to-speech conversion.
-   LLM API Key: Obtain from OpenAI for interacting with the Large Language Model.
+   Deepgram API Key: Obtain from Deepgram for speech-to-text conversion.
+   OpenAI API Key: Obtain from OpenAI for text-to-speech conversion.
+   OpenAI API Key: Obtain from OpenAI for interacting with the Large Language Model.
 
 Store these keys securely and configure them using command-line flags or environment variables.
+
+4. Usage
+
+   ```bash
+   make run
+   ```
+
+### Performance Metrics
+
+The application tracks the following performance metrics:
+
+- STT Time: Duration for speech-to-text conversion.
+- LLM Response Time: Duration from input reception to LLM first token response.
+- TTS Time: Duration for text-to-speech conversion.

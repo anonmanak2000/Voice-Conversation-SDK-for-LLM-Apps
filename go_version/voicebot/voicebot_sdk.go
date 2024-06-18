@@ -1,27 +1,22 @@
 package voicebot
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
-	"net/http"
+	"fmt"
+	"log"
 	"time"
 )
 
 type Config struct {
-	STTApiKey string
-	TTSApiKey string
-	LLMApiKey string
+	Deepgram_API_KEY string
+	OPENAI_API_KEY   string
 }
 
 type VoiceBotSDK struct {
-	sttApiKey string
-	ttsApiKey string
-	llmApiKey string
-	metrics   Metrics
+	config  Config
+	metrics metrics
 }
 
-type Metrics struct {
+type metrics struct {
 	STTTime           time.Duration
 	LLMFirstTokenTime time.Duration
 	LLMCompleteTime   time.Duration
@@ -30,146 +25,77 @@ type Metrics struct {
 
 func NewVoiceBotSDK(config Config) *VoiceBotSDK {
 	return &VoiceBotSDK{
-		sttApiKey: config.STTApiKey,
-		ttsApiKey: config.TTSApiKey,
-		llmApiKey: config.LLMApiKey,
-		metrics:   Metrics{},
+		config: Config{
+			Deepgram_API_KEY: config.Deepgram_API_KEY,
+			OPENAI_API_KEY:   config.OPENAI_API_KEY,
+		},
+
+		metrics: metrics{},
 	}
 }
 
-func (sdk *VoiceBotSDK) ProcessSpeech(audioData []int16, output io.Writer) error {
+func (sdk *VoiceBotSDK) Process(fileName string) error {
 	sttStart := time.Now()
-	transcript, err := sdk.sttToText(audioData)
+
+	// Read the WAV file
+	data, err := readWavFile(fileName)
 	if err != nil {
-		return err
+		log.Fatalf("Failed to read WAV file: %v", err)
 	}
+
+	//Start Speech to Text Conversion
+	transcript, err := convertSpeechToText(sdk.config.Deepgram_API_KEY, data)
+	if err != nil {
+		log.Fatalf("Failed to convert speech to text: %v", err)
+	}
+	log.Printf("Transcript: %s", transcript)
 	sttEnd := time.Now()
 	sdk.metrics.STTTime = sttEnd.Sub(sttStart)
 
 	llmStart := time.Now()
-	prompt := "System prompt captured. Now start the main conversation: " + transcript
-	llmResponse, err := sdk.queryLLM(prompt)
+
+	//Start LLM query
+	response, err := getOpenAIResponse(sdk.config.OPENAI_API_KEY, transcript)
 	if err != nil {
-		return err
+		log.Fatalf("Failed to get response from OpenAI: %v", err)
 	}
+	log.Printf("Response: %s", response)
+
 	llmEnd := time.Now()
 	sdk.metrics.LLMFirstTokenTime = llmEnd.Sub(llmStart)
 	sdk.metrics.LLMCompleteTime = sdk.metrics.LLMFirstTokenTime
 
 	ttsStart := time.Now()
-	ttsResponse, err := sdk.textToSpeech(llmResponse)
-	if err != nil {
-		return err
-	}
 
-	// Play audio output through the provided output writer
-	_, err = output.Write(ttsResponse)
+	//Start Text to Speech Conversion
+	outputAudioData, err := convertTextToSpeech(sdk.config.OPENAI_API_KEY, response)
 	if err != nil {
-		return err
+		log.Fatalf("Failed to convert text to speech: %v", err)
 	}
+	// Save the audio data as output.wav
+	err = saveWavFile("output.wav", outputAudioData)
+	if err != nil {
+		log.Fatalf("Failed to save WAV file: %v", err)
+	}
+	log.Println("output.wav file has been saved successfully")
 	ttsEnd := time.Now()
 	sdk.metrics.TTSTime = ttsEnd.Sub(ttsStart)
+
+	//Print Metrics for the request
+	fmt.Println("Metrics for the library: ")
+
+	currentMetrics := sdk.GetMetrics()
+	fmt.Println("Speech to Text Time: ", currentMetrics.STTTime)
+
+	fmt.Println("Time to retreive first token from LLM: ", currentMetrics.LLMFirstTokenTime)
+
+	fmt.Println("Time taken by LLM to complete:  ", currentMetrics.LLMCompleteTime)
+
+	fmt.Println("Text to Speech Time: ", currentMetrics.TTSTime)
 
 	return nil
 }
 
-func (sdk *VoiceBotSDK) sttToText(audioData []int16) (string, error) {
-	requestBody, err := json.Marshal(map[string]interface{}{
-		"data": audioData,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequest("POST", "https://api.deepgram.com/v1/listen", bytes.NewBuffer(requestBody))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Token "+sdk.sttApiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var result map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		return "", err
-	}
-
-	transcript := result["channels"].(map[string]interface{})["alternatives"].([]interface{})[0].(map[string]interface{})["text"].(string)
-	return transcript, nil
-}
-
-func (sdk *VoiceBotSDK) queryLLM(prompt string) (string, error) {
-	requestBody, err := json.Marshal(map[string]string{
-		"model":      "text-davinci-003",
-		"prompt":     prompt,
-		"max_tokens": "150",
-	})
-	if err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/completions", bytes.NewBuffer(requestBody))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+sdk.llmApiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var result map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		return "", err
-	}
-
-	llmResponse := result["choices"].([]interface{})[0].(map[string]interface{})["text"].(string)
-	return llmResponse, nil
-}
-
-func (sdk *VoiceBotSDK) textToSpeech(text string) ([]byte, error) {
-	requestBody, err := json.Marshal(map[string]string{
-		"text":  text,
-		"voice": "en_us_male",
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/voices", bytes.NewBuffer(requestBody))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+sdk.ttsApiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	audioData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return audioData, nil
-}
-
-func (sdk *VoiceBotSDK) GetMetrics() Metrics {
+func (sdk *VoiceBotSDK) GetMetrics() metrics {
 	return sdk.metrics
 }
