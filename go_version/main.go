@@ -2,6 +2,7 @@ package main
 
 import (
 	"anonmanak2000/Voice-Conversation-SDK-for-LLM-Apps/voicebot"
+	"flag"
 	"log"
 	"os"
 
@@ -14,7 +15,8 @@ func goDotEnvVariable(key string) string {
 	err := godotenv.Load(".env")
 
 	if err != nil {
-		log.Fatalf("Error loading .env file")
+		log.Println("Error loading .env file")
+		return ""
 	}
 
 	return os.Getenv(key)
@@ -25,8 +27,11 @@ func main() {
 	DEEPGRAM_KEY := goDotEnvVariable("DEEPGRAM_KEY")
 	OPENAPI_KEY := goDotEnvVariable("OPENAPI_KEY")
 
-	os.Setenv("DEEPGRAM_API_KEY", DEEPGRAM_KEY)
-	os.Setenv("OPENAI_API_KEY", OPENAPI_KEY)
+	if DEEPGRAM_KEY == "" && OPENAPI_KEY == "" {
+		DEEPGRAM_KEY = *flag.String("DEEPGRAM_KEY", "", "Provide Deepgram API Key")
+		OPENAPI_KEY = *flag.String("OPENAPI_KEY", "", "Provide Open API Key")
+		flag.Parse()
+	}
 
 	config := voicebot.Config{
 		Deepgram_API_KEY: DEEPGRAM_KEY,

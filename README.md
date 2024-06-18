@@ -33,7 +33,10 @@ This is a simple application written in Go for a voice bot that processes speech
    go mod tidy
    ```
 
-3. Set up API keys:
+3. There are 2 options to setup API Keys:
+
+   a. Create an .env file to store the API Keys
+   b. Pass API keys as command-line arguments. Update Makefile to add your API Keys
 
    Deepgram API Key: Obtain from Deepgram for speech-to-text conversion.
    OpenAI API Key: Obtain from OpenAI for text-to-speech conversion.
@@ -43,8 +46,16 @@ Store these keys securely and configure them using command-line flags or environ
 
 4. Usage
 
+   a. If you have created .env file to set up API keys, use following
+
    ```bash
    make run
+   ```
+   
+   b. If you want to use API Keys via command-line
+
+   ```bash
+   make cli
    ```
 
 ### Performance Metrics
